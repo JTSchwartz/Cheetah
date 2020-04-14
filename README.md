@@ -2,3 +2,4 @@
 
 ## Authors:
 Jacob Schwartz
+Ajay Patnaik
