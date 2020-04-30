@@ -1,0 +1,18 @@
+<html>
+    <head>
+        <title>Interpreter</title>
+    </head>
+    <body>
+        <input id="myInput" />
+        <script src="lexer.js"></script>
+        <script>
+            var input = document.getElementById("myInput");
+            input.addEventListener("keyup", function(event) {
+            if (event.keyCode === 13) {
+                event.preventDefault();
+                lex(input.value);
+            }
+            });
+        </script>
+    </body>
+</html>
