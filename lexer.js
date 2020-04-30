@@ -1,11 +1,22 @@
 const isAssignment = token => /([:+\-*/]=)|\+\+|--/.test(token)
 const isBool = token => /#(TRUE)|(FALSE)/.test(token)
-const isNum = token => /[0-9]+/.test(token)
 const isBooleanOperator = token => /([<>]=)|==/.test(token)
 const isNumericalOperator = token => /[+\-*/]/.test(token)
+
 const isSpace = token => /[ ]+/.test(token)
 const isIdentifier = token => /[_a-zA-Z][_a-zA-Z0-9]*/.test(token)
+const isNumber = token => /[0-9]+/.test(token)
 
+function lex(input) {
+	let characters = input.split("")
+	console.log(characters)
+}
+
+// i have to fix this
+// this wont produce right output
+// it also doesnt know the difference between + and +=
+
+/*
 function lex(input) {
 	let characters = input.split("")
 
@@ -27,14 +38,13 @@ function lex(input) {
 
 function determineToken(input) {
 	input = input.trim()
-	
-	if(isAssignment(input)) {
-		return {type: "assignment", value: input}
-	} else if(isIdentifier(input)) {
+
+	if(isIdentifier(input)) {
 		return {type: "identifier", value: input}
-	} else if(isNum(input)) {
-		return {type: "num", value: input}
+	} else if(isNumber(input)) {
+		return {type: "number", value: input}
 	} else {
-		return null
+		return {type: "lexeme", value: input}
 	}
 }
+*/
