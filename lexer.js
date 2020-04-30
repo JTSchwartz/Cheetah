@@ -10,41 +10,48 @@ const isNumber = token => /[0-9]+/.test(token)
 function lex(input) {
 	let characters = input.split("")
 	console.log(characters)
-}
-
-// i have to fix this
-// this wont produce right output
-// it also doesnt know the difference between + and +=
-
-/*
-function lex(input) {
-	let characters = input.split("")
 
 	let tokens = []
 	let currentToken = ""
-	characters.forEach(c => {
-		currentToken += c
+	for (let index = 0; index < characters.length; index++) {
+		currentToken += characters[index]
+		console.log(currentToken)
+		console.log(isIdentifier(currentToken))
 
-		if(isSpace(c)) {
-			val = determineToken(currentToken)
-			if(val) tokens.push(val)
+		// fix if there are no spaces in between identifier and token
+
+		if(currentToken == "+") {
+			if((index + 1) != characters.length && characters[index + 1] == "="){
+				tokens.push("PLUSEQUAL")
+				currentToken = ""
+			} else {
+				tokens.push("PLUS")
+				currentToken = ""
+			}
+		} else if(currentToken == ":=") {
+			tokens.push("EQUAL")
 			currentToken = ""
+		}else if(currentToken == "(") {
+			tokens.push("LPAREN")
+			currentToken = ""
+		} else if(currentToken == "{") {
+			tokens.push("LBRACE")
+			currentToken = ""
+		} else if(characters[index] == " " || (index + 1) == characters.length) {
+			if(isIdentifier(currentToken)) {
+				tokens.push("IDENTIFIER:" + currentToken.trim())
+				currentToken = ""
+			} else if(isNumber(currentToken)) {
+				// TODO determine type of number here
+				tokens.push("NUMBER:" + currentToken.trim())
+				currentToken = ""
+			} else {
+				currentToken = ""
+			}
 		}
-	});
 
-	if(currentToken) tokens.push(determineToken(currentToken))
+
+		
+	}
 	console.log(tokens)
 }
-
-function determineToken(input) {
-	input = input.trim()
-
-	if(isIdentifier(input)) {
-		return {type: "identifier", value: input}
-	} else if(isNumber(input)) {
-		return {type: "number", value: input}
-	} else {
-		return {type: "lexeme", value: input}
-	}
-}
-*/
