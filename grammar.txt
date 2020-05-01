@@ -31,19 +31,19 @@ GRAMMAR
 
 <numericalOp>	::= +  | -  | *  | /
 
-<bool>			::= #TRUE | #FALSE
+<bool>			::= TRUE | FALSE
 
 <num>			::= [0-9]+
 
 EXAMPLES
 var1 := 6
-var2 := #TRUE
+var2 := TRUE
 function square ( x ) { x * x }
 if ( var2 ) { var1 := square(var1) }
 while ( var1 > 2 ) { var1-- }
 
 Errors
 1var := 6
-#TRUE := #FALSE
+TRUE := FALSE
 function addWithoutCommas ( a b ) { a + b }
 if ( var2 ) else { var1 := square(var1) }

@@ -3,14 +3,16 @@
         <title>Interpreter</title>
     </head>
     <body>
-        <input id="myInput" value="value := 1"/>
+        <input style="width:200px" id="myInput" /><br>
+        <div id="tokens"></div>
+        
         <script src="lexer.js"></script>
         <script>
             var input = document.getElementById("myInput");
             input.addEventListener("keyup", function(event) {
             if (event.keyCode === 13) {
                 event.preventDefault();
-                lex(input.value);
+                document.getElementById("tokens").innerHTML = lex(input.value).toString();
             }
             });
         </script>
