@@ -21,7 +21,6 @@ GRAMMAR
 
 <condition>		::= <bool>
 				::= <identifier> <numCompare> <num>
-				::= <identifier> <booleanOp> <bool>
 
 <assignment>	::= := | += | -= | *= | /= | ++ | --
 

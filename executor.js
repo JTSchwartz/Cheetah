@@ -1,15 +1,17 @@
 const {createToken, Lexer, CstParser} = require("chevrotain")
 
+// LEXICON
+
 const True = createToken({name: "True", pattern: /true/})
 const False = createToken({name: "False", pattern: /false/})
 
 const Plus = createToken({name: "Plus", pattern: /\+/})
-const Minus = createToken({name: "Minus", pattern: /-/})
+const Subtract = createToken({name: "Subtract", pattern: /-/})
 const Multiply = createToken({name: "Multiply", pattern: /\*/})
 const Divide = createToken({name: "Divide", pattern: /\//})
 
 const AddOne = createToken({name: "AddOne", pattern: /\+\+/})
-const SubOne = createToken({name: "SubOne", pattern: /--/})
+const SubtractOne = createToken({name: "SubOne", pattern: /--/})
 
 const Greater = createToken({name: "Greater", pattern: />/})
 const GreaterEquals = createToken({name: "GreaterEquals", pattern: />=/})
@@ -20,7 +22,7 @@ const NotEquals = createToken({name: "NotEquals", pattern: /!=/})
 
 const Assign = createToken({name: "Assign", pattern: /:=/})
 const PlusAssign = createToken({name: "PlusAssign", pattern: /\+=/})
-const MinusAssign = createToken({name: "MinusAssign", pattern: /-=/})
+const SubtractAssign = createToken({name: "SubtractAssign", pattern: /-=/})
 const MultiplyAssign = createToken({name: "MultiplyAssign", pattern: /\*=/})
 const DivideAssign = createToken({name: "DivideAssign", pattern: /\/=/})
 
@@ -68,15 +70,15 @@ const allTokens = [
 	NotEquals,
 	Assign,
 	PlusAssign,
-	MinusAssign,
+	SubtractAssign,
 	MultiplyAssign,
 	DivideAssign,
 	AddOne,
-	SubOne,
+	SubtractOne,
 	True,
 	False,
 	Plus,
-	Minus,
+	Subtract,
 	Multiply,
 	Divide,
 	Num,
@@ -84,25 +86,32 @@ const allTokens = [
 	WhiteSpace
 ]
 
-class LanguageParser extends CstParser {
+// PARSER
+
+class Parser extends CstParser {
 	constructor(input) {
 		super(allTokens)
 		const $ = this
 		
 		$.RULE("program", () => {
 			$.OR([
-				{ALT: () => $.SUBRULE($.expr)},
-				{ALT: () => $.SUBRULE($.func)}
+				{ALT: () => $.SUBRULE($.expr),
+					// IGNORE_AMBIGUITIES: true
+				},
+				{ALT: () => $.SUBRULE($.func),
+					// IGNORE_AMBIGUITIES: true
+				},
 			])
 		})
 		
 		$.RULE("func", () => {
 			$.CONSUME(Function)
+			$.CONSUME(Identifier)
 			$.CONSUME(LParen)
 			$.MANY_SEP({
 				SEP: Comma,
 				DEF: () => {
-					$.CONSUME(Identifier)
+					$.CONSUME2(Identifier)
 				}
 			})
 			$.CONSUME(RParen)
@@ -111,16 +120,119 @@ class LanguageParser extends CstParser {
 			$.CONSUME(RBracket)
 		})
 		
+		$.RULE("funcCall", () => {
+			$.CONSUME(Identifier)
+			$.CONSUME(LParen)
+			$.MANY_SEP({
+				SEP: Comma,
+				DEF: () => {
+					$.CONSUME2(Identifier)
+				}
+			})
+			$.CONSUME(RParen)
+		})
+		
+		$.RULE("if", () => {
+			$.CONSUME(If)
+			$.CONSUME(LParen)
+			$.SUBRULE($.condition)
+			$.CONSUME(RParen)
+			$.CONSUME(LBracket)
+			$.SUBRULE($.expr)
+			$.CONSUME(RBracket)
+			$.OPTION(() => {
+				$.CONSUME(Else)
+				$.CONSUME2(LBracket)
+				$.SUBRULE2($.expr)
+				$.CONSUME2(RBracket)
+			})
+		})
+		
+		$.RULE("while", () => {
+			$.CONSUME(While)
+			$.CONSUME(LParen)
+			$.SUBRULE($.condition)
+			$.CONSUME(RParen)
+			$.CONSUME(LBracket)
+			$.SUBRULE($.expr)
+			$.CONSUME(RBracket)
+		})
+		
 		$.RULE("expr", () => {
 			$.OR([
-				{ALT: () => $.CONSUME(Num)},
-				{ALT: () => $.SUBRULE($.bool)}
+				{ALT: () => $.SUBRULE($.unaryExpr)},
+				{ALT: () => $.SUBRULE($.condition)},
+				{ALT: () => $.SUBRULE($.assignment)},
+				{ALT: () => $.SUBRULE($.mathExpr)},
+				{ALT: () => $.SUBRULE($.funcCall)},
+				{ALT: () => $.SUBRULE($.if)},
+				{ALT: () => $.SUBRULE($.while)}
 			])
+		})
+		
+		$.RULE("mathExpr", () => {
+			$.OR([
+				{ALT: () => $.CONSUME(Num)},
+				{ALT: () => $.CONSUME(Identifier)}
+			])
+			$.SUBRULE($.numOp)
+			$.CONSUME2(Num)
+		})
+		
+		$.RULE("unaryExpr", () => {
+			$.CONSUME(Identifier)
+			$.SUBRULE($.unaryOp)
 		})
 		
 		$.RULE("condition", () => {
 			$.OR([
-				{ALT: $.CONSUME($.bool)}
+				{ALT:  () => $.SUBRULE($.bool)},
+				{ALT:  () => $.SUBRULE($.comparison)}
+			])
+		})
+		
+		$.RULE("assignment", () => {
+			$.CONSUME(Identifier)
+			$.OR([
+				{ALT: () => $.CONSUME(Assign)},
+				{ALT: () => $.CONSUME(PlusAssign)},
+				{ALT: () => $.CONSUME(SubtractAssign)},
+				{ALT: () => $.CONSUME(MultiplyAssign)},
+				{ALT: () => $.CONSUME(DivideAssign)}
+			])
+			$.SUBRULE($.expr)
+		})
+		
+		$.RULE("comparison", () => {
+			$.CONSUME(Identifier)
+			$.SUBRULE($.bool)
+			$.CONSUME(Num)
+		})
+		
+		$.RULE("boolOp", () => {
+			$.OR([
+				{ALT: () => $.CONSUME(Greater)},
+				{ALT: () => $.CONSUME(GreaterEquals)},
+				{ALT: () => $.CONSUME(Lesser)},
+				{ALT: () => $.CONSUME(LesserEqual)},
+				{ALT: () => $.CONSUME(Equals)},
+				{ALT: () => $.CONSUME(NotEquals)}
+			])
+		})
+		
+		$.RULE("numOp", () => {
+			$.OR([
+				{ALT: () => $.CONSUME(Plus)},
+				{ALT: () => $.CONSUME(Subtract)},
+				{ALT: () => $.CONSUME(Multiply)},
+				{ALT: () => $.CONSUME(Divide)}
+			])
+		})
+		
+		$.RULE("unaryOp", () => {
+			$.OR([
+				{ALT: () => $.CONSUME(AddOne)},
+				{ALT: () => $.CONSUME(SubtractOne)}
 			])
 		})
 		
@@ -136,10 +248,16 @@ class LanguageParser extends CstParser {
 }
 
 const LanguageLexer = new Lexer(allTokens)
+const LanguageParser = new Parser()
 
-function lex(input) {
+function lang(input) {
 	const lexResult = LanguageLexer.tokenize(input)
-	console.log(lexResult)
+	LanguageParser.input = lexResult.tokens
+	const CST = LanguageParser.program()
+	console.log("Parser: ", LanguageParser)
+	console.log(`CST: ${JSON.stringify(CST)}`)
+	
+	return CST
 }
 
-lex("12 + 4")
+lang("12 + 4")
