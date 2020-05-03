@@ -1,4 +1,9 @@
-const {createToken, Lexer, CstParser} = require("chevrotain")
+const {createToken, Lexer, CstParser} = require("chevrotain"), readline = require('readline');
+
+const rl = readline.createInterface({
+	input: process.stdin,
+	output: process.stdout
+});
 
 // LEXICON
 
@@ -90,7 +95,9 @@ const allTokens = [
 
 class Parser extends CstParser {
 	constructor(input) {
-		super(allTokens)
+		super(allTokens, {
+			maxLookahead: 2
+		})
 		const $ = this
 		
 		$.RULE("program", () => {
@@ -260,4 +267,14 @@ function lang(input) {
 	return CST
 }
 
-lang("12 + 4")
+console.log("Language Generated in JavaScript - Ajay Patnaik & Jacob Schwartz")
+
+function run() {
+	rl.question('=> ', (input) => {
+		lang(input)
+		rl.close();
+		run()
+	});
+}
+
+run()
