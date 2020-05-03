@@ -5,7 +5,7 @@ GRAMMAR
 
 <conditional>	::= if \( <condition> \) { <expr> } (else { <expr> })?
 
-<while>	::= if \( <condition> \) { <expr> }
+<while>			::= while \( <condition> \) { <expr> }
 
 <expr>			::= <num> | <bool> | <condition>
 				::= <identifier> <assignment> <expr>?

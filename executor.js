@@ -29,7 +29,14 @@ const RParen = createToken({name: "RParen", pattern: /\)/})
 const LBracket = createToken({name: "LBracket", pattern: /{/})
 const RBracket = createToken({name: "RBracket", pattern: /}/})
 
+const If = createToken({name: "If", pattern: /if/})
+const Else = createToken({name: "Else", pattern: /else/})
+const While = createToken({name: "While", pattern: /while/})
+const Function = createToken({name: "Function", pattern: /function/})
+
 const Identifier = createToken({name: "Identifier", pattern: /[_a-zA-Z][_a-zA-Z0-9]*/})
+
+const Comma = createToken({ name: "Comma", pattern: /,/ })
 
 const Num = createToken({
 	name:    "Num",
@@ -48,6 +55,11 @@ const allTokens = [
 	RParen,
 	LBracket,
 	RBracket,
+	Comma,
+	If,
+	Else,
+	While,
+	Function,
 	GreaterEquals,
 	Greater,
 	LesserEqual,
@@ -71,6 +83,57 @@ const allTokens = [
 	Identifier,
 	WhiteSpace
 ]
+
+class LanguageParser extends CstParser {
+	constructor(input) {
+		super(allTokens)
+		const $ = this
+		
+		$.RULE("program", () => {
+			$.OR([
+				{ALT: () => $.SUBRULE($.expr)},
+				{ALT: () => $.SUBRULE($.func)}
+			])
+		})
+		
+		$.RULE("func", () => {
+			$.CONSUME(Function)
+			$.CONSUME(LParen)
+			$.MANY_SEP({
+				SEP: Comma,
+				DEF: () => {
+					$.CONSUME(Identifier)
+				}
+			})
+			$.CONSUME(RParen)
+			$.CONSUME(LBracket)
+			$.SUBRULE($.expr)
+			$.CONSUME(RBracket)
+		})
+		
+		$.RULE("expr", () => {
+			$.OR([
+				{ALT: () => $.CONSUME(Num)},
+				{ALT: () => $.SUBRULE($.bool)}
+			])
+		})
+		
+		$.RULE("condition", () => {
+			$.OR([
+				{ALT: $.CONSUME($.bool)}
+			])
+		})
+		
+		$.RULE("bool", () => {
+			$.OR([
+				{ALT: () => $.CONSUME(True)},
+				{ALT: () => $.CONSUME(False)}
+			])
+		})
+		
+		this.performSelfAnalysis()
+	}
+}
 
 const LanguageLexer = new Lexer(allTokens)
 
