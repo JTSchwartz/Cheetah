@@ -173,7 +173,8 @@ class Parser extends CstParser {
 				{ALT: () => $.SUBRULE($.mathExpr)},
 				{ALT: () => $.SUBRULE($.funcCall)},
 				{ALT: () => $.SUBRULE($.if)},
-				{ALT: () => $.SUBRULE($.while)}
+				{ALT: () => $.SUBRULE($.while)},
+				{ALT: () => $.CONSUME(Num)}
 			])
 		})
 		
