@@ -213,7 +213,7 @@ class Parser extends CstParser {
 		
 		$.RULE("comparison", () => {
 			$.CONSUME(Identifier)
-			$.SUBRULE($.bool)
+			$.SUBRULE($.boolOp)
 			$.CONSUME(Num)
 		})
 		
