@@ -1,7 +1,7 @@
-const {createToken, Lexer, CstParser} = require("chevrotain"), readline = require('readline');
+const {createToken, Lexer, CstParser, tokenMatcher} = require("chevrotain"), readline = require("readline");
 
 const rl = readline.createInterface({
-	input: process.stdin,
+	input:  process.stdin,
 	output: process.stdout
 });
 
@@ -10,7 +10,7 @@ const rl = readline.createInterface({
 const True = createToken({name: "True", pattern: /true/})
 const False = createToken({name: "False", pattern: /false/})
 
-const Plus = createToken({name: "Plus", pattern: /\+/})
+const Add = createToken({name: "Add", pattern: /\+/})
 const Subtract = createToken({name: "Subtract", pattern: /-/})
 const Multiply = createToken({name: "Multiply", pattern: /\*/})
 const Divide = createToken({name: "Divide", pattern: /\//})
@@ -26,7 +26,7 @@ const Equals = createToken({name: "Equals", pattern: /==/})
 const NotEquals = createToken({name: "NotEquals", pattern: /!=/})
 
 const Assign = createToken({name: "Assign", pattern: /:=/})
-const PlusAssign = createToken({name: "PlusAssign", pattern: /\+=/})
+const AddAssign = createToken({name: "AddAssign", pattern: /\+=/})
 const SubtractAssign = createToken({name: "SubtractAssign", pattern: /-=/})
 const MultiplyAssign = createToken({name: "MultiplyAssign", pattern: /\*=/})
 const DivideAssign = createToken({name: "DivideAssign", pattern: /\/=/})
@@ -43,7 +43,7 @@ const Function = createToken({name: "Function", pattern: /function/})
 
 const Identifier = createToken({name: "Identifier", pattern: /[_a-zA-Z][_a-zA-Z0-9]*/})
 
-const Comma = createToken({ name: "Comma", pattern: /,/ })
+const Comma = createToken({name: "Comma", pattern: /,/})
 
 const Num = createToken({
 	name:    "Num",
@@ -73,16 +73,16 @@ const allTokens = [
 	Lesser,
 	Equals,
 	NotEquals,
-	Assign,
-	PlusAssign,
+	AddAssign,
 	SubtractAssign,
 	MultiplyAssign,
 	DivideAssign,
+	Assign,
 	AddOne,
 	SubtractOne,
 	True,
 	False,
-	Plus,
+	Add,
 	Subtract,
 	Multiply,
 	Divide,
@@ -91,23 +91,23 @@ const allTokens = [
 	WhiteSpace
 ]
 
+const LanguageLexer = new Lexer(allTokens)
+
 // PARSER
 
 class Parser extends CstParser {
 	constructor(input) {
-		super(allTokens, {
-			maxLookahead: 2
-		})
+		super(allTokens)
 		const $ = this
 		
 		$.RULE("program", () => {
 			$.OR([
-				{ALT: () => $.SUBRULE($.expr),
-					// IGNORE_AMBIGUITIES: true
+				{
+					ALT: () => $.SUBRULE($.expr)
 				},
-				{ALT: () => $.SUBRULE($.func),
-					// IGNORE_AMBIGUITIES: true
-				},
+				{
+					ALT: () => $.SUBRULE($.func)
+				}
 			])
 		})
 		
@@ -194,21 +194,21 @@ class Parser extends CstParser {
 		
 		$.RULE("condition", () => {
 			$.OR([
-				{ALT:  () => $.SUBRULE($.bool)},
-				{ALT:  () => $.SUBRULE($.comparison)}
+				{ALT: () => $.SUBRULE($.bool)},
+				{ALT: () => $.SUBRULE($.comparison)}
 			])
 		})
 		
 		$.RULE("assignment", () => {
-			$.CONSUME(Identifier)
+			$.CONSUME(Identifier, {LABEL: "id"})
 			$.OR([
-				{ALT: () => $.CONSUME(Assign)},
-				{ALT: () => $.CONSUME(PlusAssign)},
-				{ALT: () => $.CONSUME(SubtractAssign)},
-				{ALT: () => $.CONSUME(MultiplyAssign)},
-				{ALT: () => $.CONSUME(DivideAssign)}
+				{ALT: () => $.CONSUME(Assign, {LABEL: "op"})},
+				{ALT: () => $.CONSUME(AddAssign, {LABEL: "op"})},
+				{ALT: () => $.CONSUME(SubtractAssign, {LABEL: "op"})},
+				{ALT: () => $.CONSUME(MultiplyAssign, {LABEL: "op"})},
+				{ALT: () => $.CONSUME(DivideAssign, {LABEL: "op"})}
 			])
-			$.SUBRULE($.expr)
+			$.SUBRULE($.expr, {LABEL: "value"})
 		})
 		
 		$.RULE("comparison", () => {
@@ -230,7 +230,7 @@ class Parser extends CstParser {
 		
 		$.RULE("numOp", () => {
 			$.OR([
-				{ALT: () => $.CONSUME(Plus)},
+				{ALT: () => $.CONSUME(Add)},
 				{ALT: () => $.CONSUME(Subtract)},
 				{ALT: () => $.CONSUME(Multiply)},
 				{ALT: () => $.CONSUME(Divide)}
@@ -255,25 +255,85 @@ class Parser extends CstParser {
 	}
 }
 
-const LanguageLexer = new Lexer(allTokens)
 const LanguageParser = new Parser()
+
+// Switch to without Defaults once all visitor methods have been implemented
+// const BaseCstVisitor = LanguageParser.getBaseCstVisitorConstructor()
+const BaseCstVisitor = LanguageParser.getBaseCstVisitorConstructorWithDefaults()
+
+class Interpreter extends BaseCstVisitor {
+	constructor() {
+		super()
+		this.validateVisitor()
+	}
+	
+	assignment(ctx) {
+		const value = this.visit(ctx.value)
+		const id = ctx.id[0].image
+		const op = ctx.op[0].tokenType
+		
+		if (tokenMatcher(op, Assign) || isNaN(value)) { // Defaults to normal assignment if the value is not a number, or if the identifier has not been initialized
+			identifiers[id] = value
+		}
+		
+		if (!(id in identifiers)) {
+			throw "Identifier must be initialized before attempting computation"
+		} else if (tokenMatcher(op, AddAssign)) {
+			identifiers[id] += value
+		} else if (tokenMatcher(op, SubtractAssign)) {
+			identifiers[id] -= value
+		} else if (tokenMatcher(op, MultiplyAssign)) {
+			identifiers[id] *= value
+		} else if (tokenMatcher(op, DivideAssign)) {
+			identifiers[id] /= value
+		}
+		
+		return identifiers[id]
+	}
+	
+	expr(ctx) {
+		if (ctx.Num) {
+			return Number(ctx.Num[0].image)
+		} else {
+			return this.visit(ctx.assignment)
+		}
+	}
+	
+	func(ctx) {
+		return "function"
+	}
+	
+	program(ctx) {
+		if (ctx.expr) {
+			return this.visit(ctx.expr)
+		} else {
+			return this.visit(ctx.func)
+		}
+	}
+}
+
+const LanguageInterpreter = new Interpreter()
+
+const identifiers = []
 
 function lang(input) {
 	const lexResult = LanguageLexer.tokenize(input)
 	LanguageParser.input = lexResult.tokens
 	const CST = LanguageParser.program()
+	const value = LanguageInterpreter.visit(CST)
+	
 	console.log("Parser: ", LanguageParser)
 	console.log(`CST: ${JSON.stringify(CST)}`)
+	console.log(`Value: ${value}`)
 	
-	return CST
+	return value
 }
 
 console.log("Language Generated in JavaScript - Ajay Patnaik & Jacob Schwartz")
 
 function run() {
-	rl.question('=> ', (input) => {
+	rl.question("=> ", (input) => {
 		lang(input)
-		rl.close();
 		run()
 	});
 }
