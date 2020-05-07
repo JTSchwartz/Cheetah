@@ -212,9 +212,12 @@ class Parser extends CstParser {
 		})
 		
 		$.RULE("comparison", () => {
-			$.CONSUME(Identifier)
+			$.OR([
+				{ALT: () => $.CONSUME(Identifier)},
+				{ALT: () => $.CONSUME(Num)}
+			])
 			$.SUBRULE($.boolOp)
-			$.CONSUME(Num)
+			$.CONSUME2(Num)
 		})
 		
 		$.RULE("boolOp", () => {
@@ -271,8 +274,6 @@ class Interpreter extends BaseCstVisitor {
 		const value = this.visit(ctx.value)
 		const id = ctx.id[0].image
 		const op = ctx.op[0].tokenType
-
-		console.log(op)
 		
 		if (tokenMatcher(op, Assign) || isNaN(value)) { // Defaults to normal assignment if the value is not a number, or if the identifier has not been initialized
 			identifiers[id] = value
@@ -296,10 +297,64 @@ class Interpreter extends BaseCstVisitor {
 	expr(ctx) {
 		if (ctx.Num) {
 			return Number(ctx.Num[0].image)
-		} else if(ctx.assignment){
+		} else if(ctx.assignment) {
 			return this.visit(ctx.assignment)
 		} else if(ctx.mathExpr) {
 			return this.visit(ctx.mathExpr)
+		} else if(ctx.condition) {
+			return this.visit(ctx.condition)
+		}
+	}
+
+	condition(ctx) {
+		if(ctx.bool) {
+			const val = this.visit(ctx.bool)
+			if(tokenMatcher(val, True)) {
+				return true
+			} else if(tokenMatcher(val, False)) {
+				return false
+			}
+		} else if(ctx.comparison) {
+			return this.visit(ctx.comparison)
+		}
+	}
+
+	comparison(ctx) {
+		var num1 = 0
+		var num2 = 0
+
+		if(ctx.Identifier) {
+			const id = ctx.Identifier[0].image
+			// TODO: handle error if id does not exist in identifiers
+			num1 = identifiers[id]
+			num2 = Number(ctx.Num[0].image)	
+		} else {
+			num1 = Number(ctx.Num[0].image)
+			num2 = Number(ctx.Num[1].image)
+		}
+		
+		const op = this.visit(ctx.boolOp)
+
+		if(tokenMatcher(op, Greater)) {
+			return num1 > num2
+		} else if(tokenMatcher(op, GreaterEquals)) {
+			return num1 >= num2
+		} else if(tokenMatcher(op, Lesser)) {
+			return num1 < num2
+		} else if(tokenMatcher(op, LesserEqual)) {
+			return num1 <= num2
+		} else if(tokenMatcher(op, Equals)) {
+			return num1 == num2
+		} else if(tokenMatcher(op, NotEquals)) {
+			return num1 != num2
+		}
+	}
+
+	bool(ctx) {
+		if(ctx.True) {
+			return ctx.True[0].tokenType
+		} else if(ctx.False) {
+			return ctx.False[0].tokenType
 		}
 	}
 	
@@ -319,18 +374,34 @@ class Interpreter extends BaseCstVisitor {
 		}
 	}
 
+	boolOp(ctx) {
+		if(ctx.Greater) {
+			return ctx.Greater[0].tokenType
+		} else if(ctx.GreaterEquals) {
+			return ctx.GreaterEquals[0].tokenType
+		} else if(ctx.Lesser) {
+			return ctx.Lesser[0].tokenType
+		} else if(ctx.LesserEqual) {
+			return ctx.LesserEqual[0].tokenType
+		} else if(ctx.Equals) {
+			return ctx.Equals[0].tokenType
+		} else if(ctx.NotEquals) {
+			return ctx.NotEquals[0].tokenType
+		}
+	}
+
 	mathExpr(ctx) {
 		const num1 = Number(ctx.Num[0].image)
 		const num2 = Number(ctx.Num[1].image)
-		const mathType = this.visit(ctx.numOp)
+		const op = this.visit(ctx.numOp)
 
-		if(tokenMatcher(mathType, Add)) {
+		if(tokenMatcher(op, Add)) {
 			return num1 + num2
-		} else if(tokenMatcher(mathType, Subtract)) {
+		} else if(tokenMatcher(op, Subtract)) {
 			return num1 - num2
-		} else if(tokenMatcher(mathType, Multiply)) {
+		} else if(tokenMatcher(op, Multiply)) {
 			return num1 * num2
-		} else if(tokenMatcher(mathType, Divide)) {
+		} else if(tokenMatcher(op, Divide)) {
 			return num1 / num2
 		}
 	}
@@ -355,7 +426,7 @@ function lang(input) {
 	const value = LanguageInterpreter.visit(CST)
 	
 	//console.log("Parser: ", LanguageParser)
-	console.log(`CST: ${JSON.stringify(CST)}`)
+	//console.log(`CST: ${JSON.stringify(CST)}`)
 	console.log(`Value: ${value}`)
 	
 	return value
