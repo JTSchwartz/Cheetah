@@ -1,0 +1,19 @@
+{
+  "name": "language-generation",
+  "version": "1.0.0",
+  "description": "Language built for CPS 352 Spring 2020",
+  "main": "executor.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@bitbucket.org/cps352finalproject/language-generation.git"
+  },
+  "author": "Ajay Patnaik & Jacob Schwartz",
+  "license": "MIT",
+  "homepage": "https://bitbucket.org/cps352finalproject/language-generation#readme",
+  "dependencies": {
+    "chevrotain": "^7.0.1"
+  }
+}
