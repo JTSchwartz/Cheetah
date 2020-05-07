@@ -1,0 +1,48 @@
+GRAMMAR
+<program>		::= <expr> | <function>
+
+<function>		::= function <identifier> \( ((<identifier>,)* <identifier>)? \) { <expr> }
+
+<conditional>	::= if \( <condition> \) { <expr> } (else { <expr> })?
+
+<while>			::= while \( <condition> \) { <expr> }
+
+<expr>			::= <num> | <bool> | <condition>
+				::= <identifier> <assignment> <expr>?
+				::= <expr> <operation> <expr>
+				::= <identifier> \( ((<identifier>,)* <identifier>)? \)
+				::= <while>
+
+<while>	::= if \( <condition> \) { <expr> }
+
+<operation>		::= <booleanOp> | <numericalOp>
+
+<identifier>	::= [_a-zA-Z][_a-zA-Z0-9]*
+
+<condition>		::= <bool>
+				::= <identifier> <numCompare> <num>
+
+<assignment>	::= := | += | -= | *= | /= | ++ | --
+
+<numCompare>	::= >  | >= | <  | <= | <booleanOp>
+
+<booleanOp>		::= == | !=
+
+<numericalOp>	::= +  | -  | *  | /
+
+<bool>			::= TRUE | FALSE
+
+<num>			::= [0-9]+
+
+EXAMPLES
+var1 := 6
+var2 := TRUE
+function square ( x ) { x * x }
+if ( var2 ) { var1 := square(var1) }
+while ( var1 > 2 ) { var1-- }
+
+Errors
+1var := 6
+TRUE := FALSE
+function addWithoutCommas ( a b ) { a + b }
+if ( var2 ) else { var1 := square(var1) }

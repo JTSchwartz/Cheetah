@@ -1,48 +1,37 @@
-GRAMMAR
-<program>		::= <expr> | <function>
+<program>		::= <expr> (; <expr>)*
 
-<function>		::= function <identifier> \( ((<identifier>,)* <identifier>)? \) { <expr> }
+<func>          ::= function <identifier> \(<identifier> (, <identifier>)*\) {<program>}
 
-<conditional>	::= if \( <condition> \) { <expr> } (else { <expr> })?
+<funcCall>      ::= <identifier> \(<parameters>\)
 
-<while>			::= while \( <condition> \) { <expr> }
+<parameters>    ::= (<identifier> | <bool> | <number>) (, (<identifier> | <bool> | <number>))*
 
-<expr>			::= <num> | <bool> | <condition>
-				::= <identifier> <assignment> <expr>?
-				::= <expr> <operation> <expr>
-				::= <identifier> \( ((<identifier>,)* <identifier>)? \)
-				::= <while>
+<ifOp>          ::= if \(<condition>\) {<program>} (else {<program>})?
 
-<while>	::= if \( <condition> \) { <expr> }
+<whileOp>       ::= while \(<condition>\) {<program>}
 
-<operation>		::= <booleanOp> | <numericalOp>
+<expr>          ::= <unaryExpr> | <condition> | <assignment> | <mathExpr> | <funcCall> | <ifOp> | <whileOp> | <func> | <number>
 
-<identifier>	::= [_a-zA-Z][_a-zA-Z0-9]*
+<printOp>       ::= print <identifier>
 
-<condition>		::= <bool>
-				::= <identifier> <numCompare> <num>
+<mathExpr>      ::= (<number> | <identifier>) <numOp> (<number> | <identifier>)
 
-<assignment>	::= := | += | -= | *= | /= | ++ | --
+<unaryExpr>     ::= (<number> | <identifier>) <unaryOp>
 
-<numCompare>	::= >  | >= | <  | <= | <booleanOp>
+<condition>     ::= <bool> | <comparison>
 
-<booleanOp>		::= == | !=
+<assignment>    ::= <identifier> (:= | += | -= | *= | /=) <expr>
 
-<numericalOp>	::= +  | -  | *  | /
+<comparison>    ::= (<number> | <identifier>) <boolOp> (<number> | <identifier> | <bool>)
 
-<bool>			::= TRUE | FALSE
+<boolOp>        ::= > | >= | < | <= | == | !=
 
-<num>			::= [0-9]+
+<numOp>         ::= + | - | * | /
 
-EXAMPLES
-var1 := 6
-var2 := TRUE
-function square ( x ) { x * x }
-if ( var2 ) { var1 := square(var1) }
-while ( var1 > 2 ) { var1-- }
+<unaryOp>       ::= ++ | --
 
-Errors
-1var := 6
-TRUE := FALSE
-function addWithoutCommas ( a b ) { a + b }
-if ( var2 ) else { var1 := square(var1) }
+<bool>          ::= true | false
+
+<identifier>    ::= [_a-zA-Z][_a-zA-Z0-9]*
+
+<number>        ::= -?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?
