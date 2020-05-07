@@ -271,6 +271,8 @@ class Interpreter extends BaseCstVisitor {
 		const value = this.visit(ctx.value)
 		const id = ctx.id[0].image
 		const op = ctx.op[0].tokenType
+
+		console.log(op)
 		
 		if (tokenMatcher(op, Assign) || isNaN(value)) { // Defaults to normal assignment if the value is not a number, or if the identifier has not been initialized
 			identifiers[id] = value
@@ -294,13 +296,43 @@ class Interpreter extends BaseCstVisitor {
 	expr(ctx) {
 		if (ctx.Num) {
 			return Number(ctx.Num[0].image)
-		} else {
+		} else if(ctx.assignment){
 			return this.visit(ctx.assignment)
+		} else if(ctx.mathExpr) {
+			return this.visit(ctx.mathExpr)
 		}
 	}
 	
 	func(ctx) {
 		return "function"
+	}
+
+	numOp(ctx) {
+		if(ctx.Add) {
+			return ctx.Add[0].tokenType
+		} else if(ctx.Subtract) {
+			return ctx.Subtract[0].tokenType
+		} else if(ctx.Multiply) {
+			return ctx.Multiply[0].tokenType
+		} else if(ctx.Divide) {
+			return ctx.Divide[0].tokenType
+		}
+	}
+
+	mathExpr(ctx) {
+		const num1 = Number(ctx.Num[0].image)
+		const num2 = Number(ctx.Num[1].image)
+		const mathType = this.visit(ctx.numOp)
+
+		if(tokenMatcher(mathType, Add)) {
+			return num1 + num2
+		} else if(tokenMatcher(mathType, Subtract)) {
+			return num1 - num2
+		} else if(tokenMatcher(mathType, Multiply)) {
+			return num1 * num2
+		} else if(tokenMatcher(mathType, Divide)) {
+			return num1 / num2
+		}
 	}
 	
 	program(ctx) {
@@ -322,7 +354,7 @@ function lang(input) {
 	const CST = LanguageParser.program()
 	const value = LanguageInterpreter.visit(CST)
 	
-	console.log("Parser: ", LanguageParser)
+	//console.log("Parser: ", LanguageParser)
 	console.log(`CST: ${JSON.stringify(CST)}`)
 	console.log(`Value: ${value}`)
 	
