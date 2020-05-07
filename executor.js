@@ -40,6 +40,7 @@ const If = createToken({name: "If", pattern: /if/})
 const Else = createToken({name: "Else", pattern: /else/})
 const While = createToken({name: "While", pattern: /while/})
 const Function = createToken({name: "Function", pattern: /function/})
+const Print = createToken({name: "Print", pattern: /print/})
 
 const Identifier = createToken({name: "Identifier", pattern: /[_a-zA-Z][_a-zA-Z0-9]*/})
 
@@ -68,6 +69,7 @@ const allTokens = [
 	Else,
 	While,
 	Function,
+	Print,
 	GreaterEquals,
 	Greater,
 	LesserEqual,
@@ -135,7 +137,7 @@ class Parser extends CstParser {
 			$.CONSUME(RParen)
 		})
 		
-		$.RULE("if", () => {
+		$.RULE("ifOp", () => {
 			$.CONSUME(If)
 			$.CONSUME(LParen)
 			$.SUBRULE($.condition)
@@ -146,12 +148,12 @@ class Parser extends CstParser {
 			$.OPTION(() => {
 				$.CONSUME(Else)
 				$.CONSUME2(LBracket)
-				$.SUBRULE2($.expr)
+				$.SUBRULE2($.expr, {LABEL: "elseExpr"})
 				$.CONSUME2(RBracket)
 			})
 		})
 		
-		$.RULE("while", () => {
+		$.RULE("whileOp", () => {
 			$.CONSUME(While)
 			$.CONSUME(LParen)
 			$.SUBRULE($.condition)
@@ -168,10 +170,16 @@ class Parser extends CstParser {
 				{ALT: () => $.SUBRULE($.assignment)},
 				{ALT: () => $.SUBRULE($.mathExpr)},
 				{ALT: () => $.SUBRULE($.funcCall)},
-				{ALT: () => $.SUBRULE($.if)},
-				{ALT: () => $.SUBRULE($.while)},
+				{ALT: () => $.SUBRULE($.ifOp)},
+				{ALT: () => $.SUBRULE($.whileOp)},
+				{ALT: () => $.SUBRULE($.printOp)},
 				{ALT: () => $.CONSUME(Num)}
 			])
+		})
+
+		$.RULE("printOp", () => {
+			$.CONSUME(Print)
+			$.CONSUME(Identifier)
 		})
 		
 		$.RULE("mathExpr", () => {
@@ -310,6 +318,12 @@ class Interpreter extends BaseCstVisitor {
 			return this.visit(ctx.condition)
 		} else if(ctx.unaryExpr) {
 			return this.visit(ctx.unaryExpr)
+		} else if(ctx.ifOp) {
+			return this.visit(ctx.ifOp)
+		} else if(ctx.whileOp) {
+			return this.visit(ctx.whileOp)
+		} else if(ctx.printOp) {
+			return this.visit(ctx.printOp)
 		}
 	}
 
@@ -439,12 +453,13 @@ class Interpreter extends BaseCstVisitor {
 	}
 
 	unaryExpr(ctx) {
-		var val = 0
+		var val = undefined
+		var id = undefined
 
 		if(ctx.Identifier) {
 			// TODO: handle error if id does not exist in identifiers
 
-			const id = ctx.Identifier[0].image
+			id = ctx.Identifier[0].image
 			val = identifiers[id]
 		} else {
 			val = Number(ctx.Num[0].image)
@@ -453,8 +468,10 @@ class Interpreter extends BaseCstVisitor {
 		const op = this.visit(ctx.unaryOp)
 
 		if(tokenMatcher(op, AddOne)) {
+			identifiers[id] = val + 1
 			return val + 1
 		} else if(tokenMatcher(op, SubtractOne)) {
+			identifiers[id] = val - 1
 			return val - 1
 		}
 	}
@@ -464,6 +481,37 @@ class Interpreter extends BaseCstVisitor {
 			return ctx.AddOne[0].tokenType
 		} else if(ctx.SubOne) {
 			return ctx.SubOne[0].tokenType
+		}
+	}
+	
+	ifOp(ctx) {
+		const condition = this.visit(ctx.condition)
+		const expr = this.visit(ctx.expr)
+		var elseExpr = undefined
+
+		if(ctx.elseExpr) { elseExpr = this.visit(ctx.elseExpr) }
+
+		if(condition) {
+			return expr
+		} else {
+			if(elseExpr) {
+				return elseExpr
+			} else {
+				return undefined
+			}
+		}
+	}
+
+	printOp(ctx) {
+		const id = ctx.Identifier[0].image
+		const val = identifiers[id]
+		return val
+	}
+
+	// while (val < 4) {val++}
+	whileOp(ctx) {
+		while(this.visit(ctx.condition)) {
+			this.visit(ctx.expr)
 		}
 	}
 	
@@ -487,7 +535,7 @@ function lang(input) {
 	const value = LanguageInterpreter.visit(CST)
 	
 	//console.log("Parser: ", LanguageParser)
-	console.log(`CST: ${JSON.stringify(CST)}`)
+	//console.log(`CST: ${JSON.stringify(CST)}`)
 	console.log(`Value: ${value}`)
 	
 	return value
