@@ -58,6 +58,7 @@ const WhiteSpace = createToken({
 })
 
 const allTokens = [
+	Num,
 	LParen,
 	RParen,
 	LBracket,
@@ -86,7 +87,6 @@ const allTokens = [
 	Subtract,
 	Multiply,
 	Divide,
-	Num,
 	Identifier,
 	WhiteSpace
 ]
