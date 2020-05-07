@@ -102,12 +102,8 @@ class Parser extends CstParser {
 		
 		$.RULE("program", () => {
 			$.OR([
-				{
-					ALT: () => $.SUBRULE($.expr)
-				},
-				{
-					ALT: () => $.SUBRULE($.func)
-				}
+				{ALT: () => $.SUBRULE($.expr)},
+				{ALT: () => $.SUBRULE($.func)}
 			])
 		})
 		
@@ -184,11 +180,17 @@ class Parser extends CstParser {
 				{ALT: () => $.CONSUME(Identifier)}
 			])
 			$.SUBRULE($.numOp)
-			$.CONSUME2(Num)
+			$.OR2([
+				{ALT: () => $.CONSUME2(Num)},
+				{ALT: () => $.CONSUME2(Identifier)}
+			])
 		})
 		
 		$.RULE("unaryExpr", () => {
-			$.CONSUME(Identifier)
+			$.OR([
+				{ALT: () => $.CONSUME(Identifier)},
+				{ALT: () => $.CONSUME(Num)}
+			])
 			$.SUBRULE($.unaryOp)
 		})
 		
@@ -217,7 +219,10 @@ class Parser extends CstParser {
 				{ALT: () => $.CONSUME(Num)}
 			])
 			$.SUBRULE($.boolOp)
-			$.CONSUME2(Num)
+			$.OR2([
+				{ALT: () => $.CONSUME2(Identifier)},
+				{ALT: () => $.CONSUME2(Num)}
+			])
 		})
 		
 		$.RULE("boolOp", () => {
@@ -303,6 +308,8 @@ class Interpreter extends BaseCstVisitor {
 			return this.visit(ctx.mathExpr)
 		} else if(ctx.condition) {
 			return this.visit(ctx.condition)
+		} else if(ctx.unaryExpr) {
+			return this.visit(ctx.unaryExpr)
 		}
 	}
 
@@ -324,10 +331,17 @@ class Interpreter extends BaseCstVisitor {
 		var num2 = 0
 
 		if(ctx.Identifier) {
-			const id = ctx.Identifier[0].image
-			// TODO: handle error if id does not exist in identifiers
-			num1 = identifiers[id]
-			num2 = Number(ctx.Num[0].image)	
+			//TODO: error handling
+
+			const id1 = ctx.Identifier[0].image
+			num1 = identifiers[id1]
+
+			if(ctx.Identifier[1]) {
+				const id2 = ctx.Identifier[1].image
+				num2 = identifiers[id2]
+			} else {
+				num2 = Number(ctx.Num[0].image)
+			}
 		} else {
 			num1 = Number(ctx.Num[0].image)
 			num2 = Number(ctx.Num[1].image)
@@ -391,8 +405,26 @@ class Interpreter extends BaseCstVisitor {
 	}
 
 	mathExpr(ctx) {
-		const num1 = Number(ctx.Num[0].image)
-		const num2 = Number(ctx.Num[1].image)
+		var num1 = 0
+		var num2 = 0
+
+		if(ctx.Identifier) {
+			//TODO: error handling
+
+			const id1 = ctx.Identifier[0].image
+			num1 = identifiers[id1]
+
+			if(ctx.Identifier[1]) {
+				const id2 = ctx.Identifier[1].image
+				num2 = identifiers[id2]
+			} else {
+				num2 = Number(ctx.Num[0].image)
+			}
+		} else {
+			num1 = Number(ctx.Num[0].image)
+			num2 = Number(ctx.Num[1].image)
+		}
+
 		const op = this.visit(ctx.numOp)
 
 		if(tokenMatcher(op, Add)) {
@@ -403,6 +435,35 @@ class Interpreter extends BaseCstVisitor {
 			return num1 * num2
 		} else if(tokenMatcher(op, Divide)) {
 			return num1 / num2
+		}
+	}
+
+	unaryExpr(ctx) {
+		var val = 0
+
+		if(ctx.Identifier) {
+			// TODO: handle error if id does not exist in identifiers
+
+			const id = ctx.Identifier[0].image
+			val = identifiers[id]
+		} else {
+			val = Number(ctx.Num[0].image)
+		}
+
+		const op = this.visit(ctx.unaryOp)
+
+		if(tokenMatcher(op, AddOne)) {
+			return val + 1
+		} else if(tokenMatcher(op, SubtractOne)) {
+			return val - 1
+		}
+	}
+
+	unaryOp(ctx) {
+		if(ctx.AddOne) {
+			return ctx.AddOne[0].tokenType
+		} else if(ctx.SubOne) {
+			return ctx.SubOne[0].tokenType
 		}
 	}
 	
@@ -426,7 +487,7 @@ function lang(input) {
 	const value = LanguageInterpreter.visit(CST)
 	
 	//console.log("Parser: ", LanguageParser)
-	//console.log(`CST: ${JSON.stringify(CST)}`)
+	console.log(`CST: ${JSON.stringify(CST)}`)
 	console.log(`Value: ${value}`)
 	
 	return value
