@@ -45,6 +45,7 @@ const Print = createToken({name: "Print", pattern: /print/})
 const Identifier = createToken({name: "Identifier", pattern: /[_a-zA-Z][_a-zA-Z0-9]*/})
 
 const Comma = createToken({name: "Comma", pattern: /,/})
+const Semicolon = createToken({name: "Semicolon", pattern: /;/})
 
 const Num = createToken({
 	name:    "Num",
@@ -65,6 +66,7 @@ const allTokens = [
 	LBracket,
 	RBracket,
 	Comma,
+	Semicolon,
 	If,
 	Else,
 	While,
@@ -103,15 +105,17 @@ class Parser extends CstParser {
 		const $ = this
 		
 		$.RULE("program", () => {
-			$.OR([
-				{ALT: () => $.SUBRULE($.expr)},
-				{ALT: () => $.SUBRULE($.func)}
-			])
+			$.MANY_SEP({
+				SEP: Semicolon,
+				DEF: () => {
+					$.SUBRULE($.expr)
+				}
+			})
 		})
 		
 		$.RULE("func", () => {
 			$.CONSUME(Function)
-			$.CONSUME(Identifier)
+			$.CONSUME(Identifier, {LABEL: "id"})
 			$.CONSUME(LParen)
 			$.MANY_SEP({
 				SEP: Comma,
@@ -121,20 +125,30 @@ class Parser extends CstParser {
 			})
 			$.CONSUME(RParen)
 			$.CONSUME(LBracket)
-			$.SUBRULE($.expr)
+			$.SUBRULE($.program, {LABEL: "declaration"})
 			$.CONSUME(RBracket)
 		})
 		
 		$.RULE("funcCall", () => {
-			$.CONSUME(Identifier)
+			$.CONSUME(Identifier, {LABEL: "id"})
 			$.CONSUME(LParen)
+			$.SUBRULE($.parameters)
+			$.CONSUME(RParen)
+		})
+		
+		$.RULE("parameters", () => {
 			$.MANY_SEP({
 				SEP: Comma,
 				DEF: () => {
-					$.CONSUME2(Identifier)
+					$.OR([
+						{ALT: () => $.CONSUME2(Identifier)},
+						{ALT: () => $.CONSUME(True)},
+						{ALT: () => $.CONSUME(False)},
+						{ALT: () => $.CONSUME(Num)}
+					
+					])
 				}
 			})
-			$.CONSUME(RParen)
 		})
 		
 		$.RULE("ifOp", () => {
@@ -143,12 +157,12 @@ class Parser extends CstParser {
 			$.SUBRULE($.condition)
 			$.CONSUME(RParen)
 			$.CONSUME(LBracket)
-			$.SUBRULE($.expr)
+			$.SUBRULE($.program)
 			$.CONSUME(RBracket)
 			$.OPTION(() => {
 				$.CONSUME(Else)
 				$.CONSUME2(LBracket)
-				$.SUBRULE2($.expr, {LABEL: "elseExpr"})
+				$.SUBRULE2($.program, {LABEL: "elseExpr"})
 				$.CONSUME2(RBracket)
 			})
 		})
@@ -159,7 +173,7 @@ class Parser extends CstParser {
 			$.SUBRULE($.condition)
 			$.CONSUME(RParen)
 			$.CONSUME(LBracket)
-			$.SUBRULE($.expr)
+			$.SUBRULE($.program)
 			$.CONSUME(RBracket)
 		})
 		
@@ -173,6 +187,7 @@ class Parser extends CstParser {
 				{ALT: () => $.SUBRULE($.ifOp)},
 				{ALT: () => $.SUBRULE($.whileOp)},
 				{ALT: () => $.SUBRULE($.printOp)},
+				{ALT: () => $.SUBRULE($.func)},
 				{ALT: () => $.CONSUME(Num)}
 			])
 		})
@@ -229,7 +244,8 @@ class Parser extends CstParser {
 			$.SUBRULE($.boolOp)
 			$.OR2([
 				{ALT: () => $.CONSUME2(Identifier)},
-				{ALT: () => $.CONSUME2(Num)}
+				{ALT: () => $.CONSUME2(Num)},
+				{ALT: () => $.SUBRULE($.bool)}
 			])
 		})
 		
@@ -274,8 +290,8 @@ class Parser extends CstParser {
 const LanguageParser = new Parser()
 
 // Switch to without Defaults once all visitor methods have been implemented
-// const BaseCstVisitor = LanguageParser.getBaseCstVisitorConstructor()
-const BaseCstVisitor = LanguageParser.getBaseCstVisitorConstructorWithDefaults()
+const BaseCstVisitor = LanguageParser.getBaseCstVisitorConstructor()
+// const BaseCstVisitor = LanguageParser.getBaseCstVisitorConstructorWithDefaults()
 
 class Interpreter extends BaseCstVisitor {
 	constructor() {
@@ -288,8 +304,12 @@ class Interpreter extends BaseCstVisitor {
 		const id = ctx.id[0].image
 		const op = ctx.op[0].tokenType
 		
-		if (tokenMatcher(op, Assign) || isNaN(value)) { // Defaults to normal assignment if the value is not a number, or if the identifier has not been initialized
-			identifiers[id] = value
+		if (tokenMatcher(op, Assign)) { // Defaults to normal assignment if the value is not a number, or if the identifier has not been initialized
+			if (isNaN(value)) {
+				identifiers[id] = value === "true"
+			} else {
+				identifiers[id] = value
+			}
 		}
 		
 		if (!(id in identifiers)) {
@@ -324,6 +344,10 @@ class Interpreter extends BaseCstVisitor {
 			return this.visit(ctx.whileOp)
 		} else if(ctx.printOp) {
 			return this.visit(ctx.printOp)
+		} else if(ctx.func) {
+			return this.visit(ctx.func)
+		}else if(ctx.funcCall) {
+			return this.visit(ctx.funcCall)
 		}
 	}
 
@@ -353,8 +377,10 @@ class Interpreter extends BaseCstVisitor {
 			if(ctx.Identifier[1]) {
 				const id2 = ctx.Identifier[1].image
 				num2 = identifiers[id2]
-			} else {
+			} else if (ctx.Num) {
 				num2 = Number(ctx.Num[0].image)
+			} else {
+				num2 = ctx.bool[0].image === "true"
 			}
 		} else {
 			num1 = Number(ctx.Num[0].image)
@@ -372,9 +398,9 @@ class Interpreter extends BaseCstVisitor {
 		} else if(tokenMatcher(op, LesserEqual)) {
 			return num1 <= num2
 		} else if(tokenMatcher(op, Equals)) {
-			return num1 == num2
+			return num1 === num2
 		} else if(tokenMatcher(op, NotEquals)) {
-			return num1 != num2
+			return num1 !== num2
 		}
 	}
 
@@ -387,7 +413,72 @@ class Interpreter extends BaseCstVisitor {
 	}
 	
 	func(ctx) {
+		const name = ctx.id[0].image
+		const parameters = ctx.Identifier.map(x => x.image)
+		identifiers[name] = {params: parameters, pgm: JSON.parse(JSON.stringify(ctx.declaration[0]))}
+		
+		
+		
 		return "function"
+	}
+	
+	funcCall(ctx) {
+		const name = ctx.id[0].image
+		
+		if (!(name in identifiers)) throw `Function ${name} does not exist`
+		
+		const paramNames = identifiers[name].params
+		const parameters = this.visit(ctx.parameters)
+		
+		if (paramNames.length !== parameters.length) throw `Improper number of parameters`
+		
+		const bindingHolder = {}
+		for (let variable in paramNames) {
+			if (identifiers[variable]) bindingHolder[variable] = identifiers[variable]
+		}
+		
+		for (let i = 0; i < parameters.length; i++) identifiers[paramNames[i]] = parameters[i]
+		
+		this.visit(identifiers[name].pgm)
+		
+		identifiers = {...identifiers, ...bindingHolder}
+		return "functionCall"
+	}
+	
+	parameters(ctx) {
+		let all = []
+
+		if (ctx.Num) {
+			all.push(...ctx.Num)
+		}
+		
+		if (ctx.True) {
+			all.push(...ctx.True)
+		}
+		
+		if (ctx.False) {
+			all.push(...ctx.False)
+		}
+		
+		if (ctx.Identifier) {
+			all.push(...ctx.Identifier)
+		}
+
+		all = all.sort((a, b) => a.startOffset - b.startOffset)
+
+		all = all.map(token => {
+			if (tokenMatcher(token.tokenType, Identifier)) {
+				return identifiers[token.image]
+			} else if (tokenMatcher(token.tokenType, Num)) {
+				return Number(token.image)
+			} else if (tokenMatcher(token.tokenType, True)) {
+				return true
+			} else if (tokenMatcher(token.tokenType, False)) {
+				return false
+			}
+		})
+		
+		return all
 	}
 
 	numOp(ctx) {
@@ -486,8 +577,8 @@ class Interpreter extends BaseCstVisitor {
 	
 	ifOp(ctx) {
 		const condition = this.visit(ctx.condition)
-		const expr = this.visit(ctx.expr)
-		var elseExpr = undefined
+		const expr = this.visit(ctx.program)
+		let elseExpr = undefined
 
 		if(ctx.elseExpr) { elseExpr = this.visit(ctx.elseExpr) }
 
@@ -504,47 +595,40 @@ class Interpreter extends BaseCstVisitor {
 
 	printOp(ctx) {
 		const id = ctx.Identifier[0].image
-		const val = identifiers[id]
-		return val
+		console.log(`=> ${identifiers[id]}`)
 	}
 
 	// while (val < 4) {val++}
 	whileOp(ctx) {
 		while(this.visit(ctx.condition)) {
-			this.visit(ctx.expr)
+			this.visit(ctx.program)
 		}
 	}
 	
 	program(ctx) {
-		if (ctx.expr) {
-			return this.visit(ctx.expr)
-		} else {
-			return this.visit(ctx.func)
+		const expressions = Object.values(ctx)[0]
+		
+		for (let i = 0; i < expressions.length; i++) {
+			this.visit(expressions[i])
 		}
 	}
 }
 
 const LanguageInterpreter = new Interpreter()
 
-const identifiers = []
+let identifiers = []
 
 function lang(input) {
 	const lexResult = LanguageLexer.tokenize(input)
 	LanguageParser.input = lexResult.tokens
 	const CST = LanguageParser.program()
-	const value = LanguageInterpreter.visit(CST)
-	
-	//console.log("Parser: ", LanguageParser)
-	//console.log(`CST: ${JSON.stringify(CST)}`)
-	console.log(`Value: ${value}`)
-	
-	return value
+	LanguageInterpreter.visit(CST)
 }
 
 console.log("Language Generated in JavaScript - Ajay Patnaik & Jacob Schwartz")
 
 function run() {
-	rl.question("=> ", (input) => {
+	rl.question("$ ", (input) => {
 		lang(input)
 		run()
 	});
